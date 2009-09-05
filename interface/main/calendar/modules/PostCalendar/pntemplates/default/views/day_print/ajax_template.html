@@ -10,16 +10,13 @@
 [-config_load file="default.conf"-]
 [-*Load the Language Definitions*-]
 [-config_load file="lang.$USER_LANG"-]
-[-* DO NOT INCLUDE the default header, 
-  * which includes a stylesheet to screw up 
-  * our styles below *-]
-[-*include file="$TPL_NAME/views/header.html"*-]
+[-include file="$TPL_NAME/views/header.html"-]
+[-* we want to include out stylesheet for this view*-]
+[-fetch file="$TPL_STYLE_PATH/day.css" assign="css"-]
+[-eval var=$css-]
 
 [-*Values used in setting timeslot and event heights*-]
 [-php-]$timeslotHeightVal=20; $timeslotHeightUnit="px";[-/php-]
-
-<html>
-<head>
 
 <style>
 a {
@@ -29,33 +26,21 @@ td {
  font-family: Arial, Helvetica, sans-serif;
 }
 div.tiny { width:1px; height:1px; font-size:1px; }
-
-#bigCalHeader {
-    height: 20%;
-    font-family: Arial, Helvetica, sans-serif;
-}
-#bigCalText {
+#dateNAV {
     float: left;
 }
-#provname {
-    font-size: 2em;
+#dateDisplay {
+    float: left;
+    padding-left: 10px;
+    font-family: Arial, Helvetica, sans-serif;
 }
-#daterange {
-    font-size: 1.8em;
-    font-weight: bold;
-}
-
-#bigCal {
-    height: 80%;
-}
-#bigCal table {
-    border-collapse: collapse;
-}
-
-/* these are for the small datepicker DIV */
 #datePicker {
-    float: right;
+    width: 25%;
+    float: left;
+    position: absolute;
     display: inline;
+    top: 50px;
+    left: 0px;
     padding: 5px;
     text-align: center;
     background-color: lightblue;
@@ -65,8 +50,23 @@ div.tiny { width:1px; height:1px; font-size:1px; }
     font-size: 0.7em;
     /* font-size: 9pt;  */
 }
+#bigCalHeader {
+    text-align:center;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14pt;
+}
+#bigCal {
+    background-color: lightblue;
+    position: relative;
+}
+#bigCal table {
+    border-collapse: collapse;
+}
+
+/* these are for the small datepicker DIV */
 #datePicker table {
     border-collapse: collapse;
+    border: 3px solid lightblue;
 }
 #datePicker .tdDOW-small {
     font-family: Arial, Helvetica, sans-serif;
@@ -161,6 +161,7 @@ div.tiny { width:1px; height:1px; font-size:1px; }
     position: absolute;
     background-color: white;
     width: 100%; 
+    z-index:1;
     font-size: 0.8em;
     color: #ddd;
     border-top: 1px dashed #ddd;
@@ -169,6 +170,7 @@ div.tiny { width:1px; height:1px; font-size:1px; }
     position: absolute;
     background-color: lightgray;
     width: 100%; 
+    z-index:1;
     font-size: 0.8em;
     color: #ddd;
     border-top: 1px dashed #ddd;
@@ -176,6 +178,7 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 .event_appointment {
     position: absolute;
     background-color: white;
+    z-index:2;
     overflow: hidden;
     border: 1px solid blue;
     width: 100%;
@@ -184,6 +187,7 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 .event_noshow {
     position: absolute;
     background-color: pink;
+    z-index:2;
     overflow: hidden;
     border: 1px solid blue;
     width: 100%;
@@ -192,6 +196,7 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 .event_reserved {
     position: absolute;
     background-color: pink;
+    z-index:2;
     overflow: hidden;
     border: 1px solid blue;
     width: 100%;
@@ -201,24 +206,7 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 
 <script type="text/javascript" src="../../../library/textformat.js"></script>
 
-</head>
-<body>
-
 [-php-]
-
- // build a day-of-week (DOW) list so we may properly build the calendars later in this code
- $DOWlist = array();
- $tmpDOW = pnModGetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek');
- // bound check and auto-correction
- if ($tmpDOW <0 || $tmpDOW >6) { 
-    pnModSetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek', '0');
-    $tmpDOW = 0;
- }
- while (count($DOWlist) < 7) {
-    array_push($DOWlist, $tmpDOW);
-    $tmpDOW++;
-    if ($tmpDOW > 6) $tmpDOW = 0;
- }
 
  // A_CATEGORY is an ordered array of associative-array categories.
  // Keys of interest are: id, name, color, desc, event_duration.
@@ -249,33 +237,12 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 
 [-/php-]
 
+<div id="bigCalHeader">
 [-php-]
-    echo "<div id='bigCalHeader'>";
-
-    echo "<div id='bigCalText'>";
-    // output the date range
-    echo "<span id='daterange'>";
-    $atmp = array_keys($A_EVENTS);
-    echo date('d F Y', strtotime($atmp[0]));
-    echo "<br><span style='font-size:0.8em;font-weight:normal'>".xl(date('l', strtotime($atmp[0])))."</span>";
-    echo "</span>";
-    echo "</div>";
-    
-    // output a calendar for the subsequent month
-    list($nyear, $nmonth, $nday) = explode(" ", date("Y m d", strtotime($atmp[0])));
-    $nmonth++;
-    if ($nmonth > 12) { $nyear++; $nmonth=1; }
-    echo "<div id='datePicker'>";
-    PrintDatePicker(strtotime($nyear."-".$nmonth."-1"), $DOWlist, $this->_tpl_vars['A_SHORT_DAY_NAMES']);
-    echo "</div>";
-    
-    // output a small calendar for the chosen month
-    echo "<div id='datePicker'>";
-    PrintDatePicker(strtotime($atmp[0]), $DOWlist, $this->_tpl_vars['A_SHORT_DAY_NAMES']);
-    echo "</div>";
-
-    echo "</div>"; // end the bigCalHeader
+$atmp = array_keys($A_EVENTS);
+echo date('d M Y', strtotime($atmp[0]));
 [-/php-]
+</div>
 
 [-assign var="dayname" value=$DATE|date_format:"%w"-]
 [-assign var="day"     value=$DATE|date_format:"%d"|string_format:"%1d"-]
@@ -301,8 +268,7 @@ foreach ($times as $slottime) {
     $slotendmins = $starttimeh * 60 + $starttimem + $interval;
 
     echo "<tr><td class='timeslot'>";
-    if ($starttimem == "00") { echo "<b>$disptimeh:$starttimem</b>"; }
-    else { echo "$disptimeh:$starttimem"; }
+    echo "$disptimeh:$starttimem";
     echo "</td></tr>\n";
 }
 echo "</table></div></td>";
@@ -355,15 +321,6 @@ foreach ($providers as $provider) {
                 // skip events for other providers
                 if ($providerid != $e1['aid']) { continue; }
             
-                // specially handle all-day events
-                if ($e1['alldayevent'] == 1) {
-                    $tmpTime = $times[0];
-                    if (strlen($tmpTime['hour']) < 2) { $tmpTime['hour'] = "0".$tmpTime['hour']; }
-                    if (strlen($tmpTime['minute']) < 2) { $tmpTime['minute'] = "0".$tmpTime['minute']; }
-                    $e1['startTime'] = $tmpTime['hour'].":".$tmpTime['minute'].":00";
-                    $e1['duration'] = ($calEndMin - $calStartMin) * 60;  // measured in seconds
-                }
-            
                 // create a numeric start and end for comparison
                 $starth = substr($e1['startTime'], 0, 2);
                 $startm = substr($e1['startTime'], 3, 2);
@@ -409,20 +366,10 @@ foreach ($providers as $provider) {
             // skip events without an ID (why they are in the loop, I have no idea)
             if ($event['eid'] == "") { continue; }
 
-            // specially handle all-day events
-            if ($event['alldayevent'] == 1) {
-                $tmpTime = $times[0];
-                if (strlen($tmpTime['hour']) < 2) { $tmpTime['hour'] = "0".$tmpTime['hour']; }
-                if (strlen($tmpTime['minute']) < 2) { $tmpTime['minute'] = "0".$tmpTime['minute']; }
-                $event['startTime'] = $tmpTime['hour'].":".$tmpTime['minute'].":00";
-                $event['duration'] = ($calEndMin - $calStartMin) * 60;  // measured in seconds
-            }
-
             // figure the start time and minutes (from midnight)
             $starth = substr($event['startTime'], 0, 2);
             $startm = substr($event['startTime'], 3, 2);
             $eStartMin = $starth * 60 + $startm;
-            $dispstarth = ($starth > 12) ? ($starth - 12) : $starth;
 
             // determine the class for the event DIV based on the event category
             $evtClass = "event_appointment";
@@ -491,6 +438,9 @@ foreach ($providers as $provider) {
             // calculate the HEIGHT value for the event DIV
             // diff between end and start of event
             $eEndMin = $eStartMin + ($event['duration']/60);
+            // prevent the overall height of the event from going beyond the bounds
+            // of the time table
+            if ($eEndMin > $calEndMin) { $eEndMin = $calEndMin; }
             $eMinDiff = $eEndMin - $eStartMin;
             // diff divided by the time interval of the schedule
             $eEndInterval = $eMinDiff / $interval;
@@ -524,64 +474,40 @@ foreach ($providers as $provider) {
             if ($comment && $GLOBALS['calendar_appt_style'] < 4) $title .= " " . $comment;
 
             if ($catid == 2 || $catid == 3 || $catid == 4 || $catid == 8 || $catid == 11) {
-                if      ($catid ==  2) $catname = xl("IN");
-                else if ($catid ==  3) $catname = xl("OUT");
-                else if ($catid ==  4) $catname = xl("VACATION");
-                else if ($catid ==  8) $catname = xl("LUNCH");
-                else if ($catid == 11) $catname = xl("RESERVED");
+                if      ($catid ==  2) $catname = "IN";
+                else if ($catid ==  3) $catname = "OUT";
+                else if ($catid ==  4) $catname = "VACATION";
+                else if ($catid ==  8) $catname = "LUNCH";
+                else if ($catid == 11) $catname = "RESERVED";
 
                 $atitle = $catname;
-                if ($event['recurrtype'] == 1) $content .= "<img src='$TPL_IMAGE_PATH/repeating8.png' border='0' style='margin:0px 2px 0px 2px;' title='Repeating event' alt='Repeating event'>";
                 if ($comment) $atitle .= " $comment";
+                $content .= "<a href='javascript:oldEvt($eventdate,$eventid)' title='$atitle'>";
                 $content .= $catname;
                 if ($comment) $content .= " $comment";
+                $content .= "</a>";
             }
             else {
                 // some sort of patient appointment
                 $content .= "<span class='appointment".$apptToggle."'>";
-                $content .= $dispstarth . ':' . $startm;
-                if ($event['recurrtype'] == 1) $content .= "<img src='$TPL_IMAGE_PATH/repeating8.png' border='0' style='margin:0px 2px 0px 2px;' title='Repeating event' alt='Repeating event'>";
-                $content .= htmlspecialchars($event['apptstatus']);
-                
-                if ($patientid) {
-                    if ($catid == 1) $content .= "<strike>";
-                    $content .= htmlspecialchars($lname);
-                    if ($GLOBALS['calendar_appt_style'] != 1) {
-                        $content .= "," . htmlspecialchars($fname);
-                        if ($event['title'] && $GLOBALS['calendar_appt_style'] >= 3) {
-                            $content .= "(" . $event['title'];
-                            if ($event['hometext'] && $GLOBALS['calendar_appt_style'] >= 4)
-                                $content .= ": <font color='green'>" . htmlspecialchars(trim($event['hometext'])) . "</font>";
-                            $content .= ")";
-                        }
+                $content .= $starth . ':' . $startm . htmlspecialchars($event['apptstatus']);
+                if ($catid == 1) $content .= "<strike>";
+                $content .= htmlspecialchars($lname);
+                if ($GLOBALS['calendar_appt_style'] != 1) {
+                    $content .= "," . htmlspecialchars($fname);
+                    if ($event['title'] && $GLOBALS['calendar_appt_style'] >= 3) {
+                        $content .= "(" . $event['title'];
+                        if ($event['hometext'] && $GLOBALS['calendar_appt_style'] >= 4)
+                        $content .= ": <font color='green'>" . htmlspecialchars(trim($event['hometext'])) . "</font>";
+                        $content .= ")";
                     }
-                    if ($catid == 1) $content .= "</strike>";
                 }
-                else {
-                    // no patient id, just output the category name
-                    $content .= $catname;
-                }
+                if ($catid == 1) $content .= "</strike>";
+                $content .= "</a>";
                 $content .= "</span>";
             }
 
             $divTitle .= "\n(double click to edit)";
-           
-            // a special case for the 'IN' event so it doesn't overlap another
-            // event DIV and include the time
-            if ($event['catid'] == 2) {
-                $inTop = ($eStartPos - $timeslotHeightVal).$timeslotHeightUnit;
-                echo "<div class='".$evtClass." event' style='top:".$inTop.
-                    "; height:".$timeslotHeightVal.$timeslotHeightUnit.
-                    "; $divWidth".
-                    "; $divLeft".
-                    "; background:transparent".
-                    "; border: none".
-                    "'".
-                    ">";
-                $content = $dispstarth . ':' . $startm . " " . $content;
-                echo $content;
-                echo "</div>\n";
-            }
 
             // output the DIV and content
             echo "<div class='".$evtClass." event' style='top:".$evtTop."; height:".$evtHeight.
@@ -591,8 +517,7 @@ foreach ($providers as $provider) {
                     "'".
                     " id='".$eventdate."-".$eventid."'".
                     ">";
-            // second part for the special IN event
-            if ($event['catid'] != 2) { echo $content; }
+            echo $content;
             echo "</div>\n";
         } // end EVENT loop
 
@@ -612,88 +537,12 @@ echo "<P>";
  // [-include file="$TPL_NAME/views/global/footer.html"-]
  // [-include file="$TPL_NAME/views/footer.html"-]
 
-
-/* output a small calendar, based on the date-picker code from the normal calendar */
-function PrintDatePicker($caldate, $DOWlist, $daynames) {
-
-    $cMonth = date("m", $caldate);
-    $cYear = date("Y", $caldate);
-    $cDay = date("d", $caldate);
-
-    echo '<table>';
-    echo '<tr>';
-    echo '<td colspan="7" class="tdMonthName-small">';
-    echo date('F Y', $caldate);
-    echo '</td>';
-    echo '</tr>';
-    echo '<tr>';
-    foreach ($DOWlist as $dow) {
-        echo "<td class='tdDOW-small'>".$daynames[$dow]."</td>";
-    }
-    echo '</tr>';
-    
-    // to make a complete week row we need to compute the real
-    // start and end dates for the view
-    list ($year, $month, $day) = explode(" ", date('Y m d', $caldate));
-    $startdate = strtotime($year.$month."01");
-    while (date('w', $startdate) != $DOWlist[0]) { $startdate -= 60*60*24; }
-
-    $enddate = strtotime($year.$month.date("t", $month));
-    while (date('w', $enddate) != $DOWlist[6]) { $enddate += 60*60*24; }
-
-    $currdate = $startdate;
-    while ($currdate <= $enddate) {
-        if (date('w', $currdate) == $DOWlist[0]) {
-            echo "<tr>";
-        }
-
-        // we skip outputting some days
-        $skipit = false;
-
-        // set the TD class
-        $tdClass = "tdMonthDay-small";
-        if (date('m', $currdate) != $month) {
-            $tdClass = "tdOtherMonthDay-small";
-            $skipit = true;
-        }
-        if ((date('w', $currdate) == 0) || (date('w', $currdate) == 6)) {
-            $tdClass = "tdWeekend-small";
-        }
-
-        if (date('Ymd',$currdate) == $Date) {
-            // $Date is defined near the top of this file
-            // and is equal to whatever date the user has clicked
-            $tdClass .= " currentDate";
-        }
-
-        // add a class so that jQuery can grab these days for the 'click' event
-        $tdClass .= " tdDatePicker";
-
-        // output the TD
-        $td = "<td ";
-        $td .= "class=\"".$tdClass."\" ";
-        //$td .= "id=\"".date("Ymd", $currdate)."\" ";
-        $td .= "id=\"".date("Ymd", $currdate)."\" ";
-        $td .= "title=\"Go to week of ".date('M d, Y', $currdate)."\" ";
-        $td .= "> ".date('d', $currdate)."</td>\n";
-        if ($skipit == true) { echo "<td></td>"; }
-        else { echo $td; }
-   
-        // end of week row
-        if (date('w', $currdate) == $DOWlist[6]) echo "</tr>\n";
-
-        // time correction = plus 1000 seconds, for some unknown reason
-        $currdate += (60*60*24)+1000;
-    }
-    echo "</table>";
-}
-
 [-/php-]
 </div>  <!-- end bigCal DIV -->
 
 </body>
 
-<script type="text/javascript" src="[-php-] echo $GLOBALS['webroot'] [-/php-]/library/js/jquery-1.2.2.min.js"></script>
+<script type="text/javascript" src="../../../library/js/jquery-1.2.2.min.js"></script>
 <script>
 $(document).ready(function(){
     window.print();

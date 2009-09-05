@@ -10,13 +10,11 @@
 [-config_load file="default.conf"-]
 [-*Load the Language Definitions*-]
 [-config_load file="lang.$USER_LANG"-]
-[-* DO NOT INCLUDE the default header, 
-  * which includes a stylesheet to screw up 
-  * our styles below *-]
-[-*include file="$TPL_NAME/views/header.html"*-]
+[-include file="$TPL_NAME/views/header.html"-]
+[-* we want to include out stylesheet for this view*-]
+[-fetch file="$TPL_STYLE_PATH/day.css" assign="css"-]
+[-eval var=$css-]
 
-<html>
-<head>
 <style>
 a {
  text-decoration:none;
@@ -25,53 +23,41 @@ td {
  font-family: Arial, Helvetica, sans-serif;
 }
 div.tiny { width:1px; height:1px; font-size:1px; }
-#bigCalHeader {
-    width: 100%;
-    height: 20%;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 1em;
+#monthview {
+    border: 2px solid blue;
 }
-#bigCalText {
+#dayview, #weekview {
+    cursor: pointer;
+    cursor: hand;
+}
+#functions {
+    width: 20%; /* can't make this 25% for some reason */
+    float: left;
+    padding: 0px 5px 0px 5px;
+    margin-right: 5%; /* added because of the width issue above */
+}
+#topToolbarRight {
+    float: right;
+    width: 70%;
+}
+#dateNAV {
     float: left;
 }
-#provname {
-    font-size: 2em;
-}
-#daterange {
-    font-size: 1.8em;
-    font-weight: bold;
-}
-
-#bigCal {
-    width: 100%;
-    height: 80%;
-    overflow: hidden;
-    background-color: lightblue;
+#dateDisplay {
+    float: left;
+    padding-left: 10px;
     font-family: Arial, Helvetica, sans-serif;
 }
-#bigCal table {
-    border-collapse: collapse;
-    width: 100%;
-    height: 100%;
-}
-#bigCal table th {
-    height: 5%;
-    text-align: center;
-    width: 13%;
-    font-size: 0.7em;
-}
-#bigCal table td {
-    height: 15%;
-    white-space: nowrap;
-    overflow: hidden;
-}
-.pagebreak {
-    page-break-after: always;    
-}
-
-/* these are for the small datepicker DIV */
-#datePicker {
+#viewPicker {
     float: right;
+}
+#datePicker {
+    width: 25%;
+    float: left;
+    position: absolute;
+    display: inline;
+    top: 50px;
+    left: 0px;
     padding: 5px;
     text-align: center;
     background-color: lightblue;
@@ -79,9 +65,31 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 #datePicker td {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 0.7em;
+    /* font-size: 9pt;  */
 }
+#bigCalHeader {
+    width: 100%;
+    text-align:center;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14pt;
+}
+#bigCal {
+    width: 100%;
+    overflow: auto;
+    background-color: lightblue;
+    position: relative;
+}
+#bigCal table {
+    border-collapse: collapse;
+}
+.pagebreak {
+    page-break-after: always;    
+}
+
+/* these are for the small datepicker DIV */
 #datePicker table {
     border-collapse: collapse;
+    border: 3px solid lightblue;
 }
 #datePicker .tdDOW-small {
     font-family: Arial, Helvetica, sans-serif;
@@ -89,8 +97,12 @@ div.tiny { width:1px; height:1px; font-size:1px; }
     vertical-align: top; 
     background-color: lightblue;
     text-align: center;
-    border-bottom: 1px solid black;
+    border: none;
     padding: 2px 3px 2px 3px;
+}
+#datePicker .tdDatePicker {
+    cursor: pointer;
+    cursor: hand;
 }
 #datePicker .tdWeekend-small {
     font-family: Arial, Helvetica, sans-serif;
@@ -171,52 +183,42 @@ div.tiny { width:1px; height:1px; font-size:1px; }
 .event_in {
     background-color: white;
     width: 100%; 
+    z-index:1;
 }
 .event_out {
     background-color: pink;
     width: 100%; 
+    z-index:1;
 }
 .event_appointment {
+    background-color: white;
+    z-index:2;
     overflow: hidden;
     width: 100%;
     font-size: 0.8em;
-    border-bottom: 1px solid lightgrey;
+    border-bottom: 1px solid blue;
     height: 1.4em;
 }
 .event_noshow {
+    background-color: pink;
+    z-index:2;
     overflow: hidden;
     width: 100%;
     font-size: 0.8em;
-    border-bottom: 1px solid lightgrey;
+    border-bottom: 1px solid blue;
 }
 .event_reserved {
+    background-color: pink;
+    z-index:2;
     overflow: hidden;
     width: 100%;
     font-size: 0.8em;
-    border-bottom: 1px solid lightgrey;
 }
 </style>
 
-<script type="text/javascript" src="[-php-] echo $GLOBALS['webroot'] [-/php-]/library/js/jquery-1.2.2.min.js"></script>
-
-</head>
-<body>
+<script type="text/javascript" src="../../../library/js/jquery-1.2.2.min.js"></script>
 
 [-php-]
-
- // build a day-of-week (DOW) list so we may properly build the calendars later in this code
- $DOWlist = array();
- $tmpDOW = pnModGetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek');
- // bound check and auto-correction
- if ($tmpDOW <0 || $tmpDOW >6) { 
-    pnModSetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek', '0');
-    $tmpDOW = 0;
- }
- while (count($DOWlist) < 7) {
-    array_push($DOWlist, $tmpDOW);
-    $tmpDOW++;
-    if ($tmpDOW > 6) $tmpDOW = 0;
- }
 
  // this is my proposed setting in the globals config file so we don't
  // need to mess with altering the pn database AND the config file
@@ -258,57 +260,37 @@ foreach ($providers as $provider) {
     if ($addPagebreak) { echo "<div class='pagebreak'></div>"; }
     $addPagebreak = true;
 
-    echo "<div id='bigCalHeader'>";
-    //echo "<img src='/images/cfa_logo_small.gif' style='position:relative; z-index:-100'/>";
-
-    echo "<div id='bigCalText'>";
-    // output the provider name
-    echo "<span id='provname'>".$provider['fname'] . " " . $provider['lname']."</span>";
-    echo "<br>";
-    // output the date range
-    $atmp = array_keys($A_EVENTS);
-    echo "<span id='daterange'>";
-    echo  xl(date('F', strtotime($Date))). " " . date('Y', strtotime($Date));
-    echo "</span>";
-    echo "</div>";
-
-    // output a calendar for the subsequent month
-    list($nyear, $nmonth, $nday) = explode(" ", date("Y m d", strtotime($Date)));
-    $nmonth++;
-    if ($nmonth > 12) { $nyear++; $nmonth=1; }
-    echo "<div id='datePicker'>";
-    PrintDatePicker(strtotime($nyear."-".$nmonth."-1"), $DOWlist, $this->_tpl_vars['A_SHORT_DAY_NAMES']);
-    echo "</div>";
-    
-    // output a small calendar for the chosen month
-    echo "<div id='datePicker'>";
-    PrintDatePicker(strtotime($Date), $DOWlist, $this->_tpl_vars['A_SHORT_DAY_NAMES']);
-    echo "</div>";
-
-    echo "</div>"; // end the bigCalHeader
-    
     echo "<div id='bigCal'>";
+    echo "<div id='bigCalHeader'>";
+    echo date('F', strtotime($Date));
+    echo "</div>";
     
     $providerid = $provider['id'];
 
-    echo "<table>\n";
+    echo "<table border='0' cellpadding='1' cellspacing='0' width='100%'>\n";
+    echo " <tr>\n";
+    echo "  <td colspan='7' style='text-align: center; background-color:#ddd;'>";
+    echo $provider['fname']." ".$provider['lname'];
+    echo "</td>\n";
+    echo " </tr>\n";
 
-    // output day of week headers
+    // output date headers
     echo " <tr>\n";
     $defaultDate = ""; // used when creating link for a 'new' event
     $in_cat_id = 0; // used when creating link for a 'new' event
     $dowCount = 0;
     foreach ($A_EVENTS as $date => $events) {
         if ($defaultDate == "") $defaultDate = date("Ymd", strtotime($date));
-        echo "<th>";
-        echo xl(date("l", strtotime($date)));
-        echo "</th>";
+        echo "<td align='center' style='font-size: 0.7em; width:13%'>";
+        echo date("D", strtotime($date));
+        echo "</td>";
         if ($dowCount++ == 6) { break; }
     }
     echo " </tr>\n";
 
     // For each day...
     // output a TD with an inner containing DIV positioned 'relative'
+    // within that DIV we place our event DIVs using 'absolute' positioning
     foreach ($A_EVENTS as $date => $events) {
         $eventdate = substr($date, 0, 4) . substr($date, 5, 2) . substr($date, 8, 2);
 
@@ -320,7 +302,7 @@ foreach ($providers as $provider) {
                         'pc_category'=>$category,
                         'pc_topic'=>$topic));
 
-        if (date("w", strtotime($date)) == $DOWlist[0]) { echo "<tr>"; }
+        if (date("w", strtotime($date)) == 0) { echo "<tr>"; }
         echo "<td class='schedule'>";
         echo "<div style='position: relative; height: 100%; width: 100%;'>\n";
         echo "<div style='width:100%; font-size: 0.8em; text-align:right; background-color:lightgrey; padding:1px 2px 1px 2px;'>";
@@ -335,15 +317,6 @@ foreach ($providers as $provider) {
 
             // Omit IN and OUT events to reduce clutter in this month view
             if (($event['catid'] == 2) || ($event['catid'] == 3)) { continue; }
-
-            // specially handle all-day events
-            if ($event['alldayevent'] == 1) {
-                $tmpTime = $times[0];
-                if (strlen($tmpTime['hour']) < 2) { $tmpTime['hour'] = "0".$tmpTime['hour']; }
-                if (strlen($tmpTime['minute']) < 2) { $tmpTime['minute'] = "0".$tmpTime['minute']; }
-                $event['startTime'] = $tmpTime['hour'].":".$tmpTime['minute'].":00";
-                $event['duration'] = ($calEndMin - $calStartMin) * 60;  // measured in seconds
-            }
 
             // figure the start time and minutes (from midnight)
             $starth = substr($event['startTime'], 0, 2);
@@ -375,6 +348,7 @@ foreach ($providers as $provider) {
             
             // now, output the event DIV
 
+            echo "<div class='".$evtClass."' style='background-color:".$event['catcolor'].";'>";
 
             $eventid = $event['eid'];
             $patientid = $event['pid'];
@@ -397,35 +371,38 @@ foreach ($providers as $provider) {
                 $displayTime .= (date(":ia", $startDateTime));
             }
 
-            $content = "";
             if ($comment && $GLOBALS['calendar_appt_style'] < 4) $title .= " " . $comment;
 
             if ($catid == 4 || $catid == 8 || $catid == 11) {
-                if ($catid ==  4) $catname = xl("VACATION");
-                else if ($catid ==  8) $catname = xl("LUNCH");
-                else if ($catid == 11) $catname = xl("RESERVED");
+                if ($catid ==  4) $catname = "VACATION";
+                else if ($catid ==  8) $catname = "LUNCH";
+                else if ($catid == 11) $catname = "RESERVED";
 
+                $content = "<a href='javascript:oldEvt($eventdate,$eventid)'>";
                 $content .= $displayTime." ";
                 $content .= $catname;
                 if ($comment) $content .= " - $comment";
+                $content .= "</a>";
             }
             else {
                 // some sort of patient appointment
 
-                $content .= $displayTime. " ";
+                $content = "<a href='javascript:oldEvt($eventdate,$eventid)' title='$catname'>";
+                $content .= $displayTime . htmlspecialchars($event['apptstatus']) . "</a>";
+                $content .= "<a href='javascript:goPid($patientid)' title='$title'>";
                 if ($catid == 1) $content .= "<strike>";
                 $content .= htmlspecialchars($lname);
                 if ($catid == 1) $content .= "</strike>";
+                $content .= "</a>";
             }
 
-            echo "<div class='".$evtClass."' style='background-color:".$event['catcolor'].";'>";
             echo $content;
             echo "</div>\n";
         } // end EVENT loop
 
         echo "</div>";
         echo "</td>";
-        if (date("w", strtotime($date)) == $DOWlist[6]) { echo "</tr>"; }
+        if (date("w", strtotime($date)) == 6) { echo "</tr>"; }
     } // end date
 
     echo "</table>\n";
@@ -435,82 +412,6 @@ foreach ($providers as $provider) {
  // [-*footer*-]
  // [-include file="$TPL_NAME/views/global/footer.html"-]
  // [-include file="$TPL_NAME/views/footer.html"-]
-
-/* output a small calendar, based on the date-picker code from the normal calendar */
-function PrintDatePicker($caldate, $DOWlist, $daynames) {
-
-    $cMonth = date("m", $caldate);
-    $cYear = date("Y", $caldate);
-    $cDay = date("d", $caldate);
-
-    echo '<table>';
-    echo '<tr>';
-    echo '<td colspan="7" class="tdMonthName-small">';
-    echo date('F Y', $caldate);
-    echo '</td>';
-    echo '</tr>';
-    echo '<tr>';
-    foreach ($DOWlist as $dow) {
-        echo "<td class='tdDOW-small'>".$daynames[$dow]."</td>";
-    }
-    echo '</tr>';
-    
-    // to make a complete week row we need to compute the real
-    // start and end dates for the view
-    list ($year, $month, $day) = explode(" ", date('Y m d', $caldate));
-    $startdate = strtotime($year.$month."01");
-    while (date('w', $startdate) != $DOWlist[0]) { $startdate -= 60*60*24; }
-
-    $enddate = strtotime($year.$month.date("t", $month));
-    while (date('w', $enddate) != $DOWlist[6]) { $enddate += 60*60*24; }
-
-    $currdate = $startdate;
-    while ($currdate <= $enddate) {
-        if (date('w', $currdate) == $DOWlist[0]) {
-            echo "<tr>";
-        }
-
-        // we skip outputting some days
-        $skipit = false;
-
-        // set the TD class
-        $tdClass = "tdMonthDay-small";
-        if (date('m', $currdate) != $month) {
-            $tdClass = "tdOtherMonthDay-small";
-            $skipit = true;
-        }
-        if ((date('w', $currdate) == 0) || (date('w', $currdate) == 6)) {
-            $tdClass = "tdWeekend-small";
-        }
-
-        if (date('Ymd',$currdate) == $Date) {
-            // $Date is defined near the top of this file
-            // and is equal to whatever date the user has clicked
-            $tdClass .= " currentDate";
-        }
-
-        // add a class so that jQuery can grab these days for the 'click' event
-        $tdClass .= " tdDatePicker";
-
-        // output the TD
-        $td = "<td ";
-        $td .= "class=\"".$tdClass."\" ";
-        //$td .= "id=\"".date("Ymd", $currdate)."\" ";
-        $td .= "id=\"".date("Ymd", $currdate)."\" ";
-        $td .= "title=\"Go to week of ".date('M d, Y', $currdate)."\" ";
-        $td .= "> ".date('d', $currdate)."</td>\n";
-        if ($skipit == true) { echo "<td></td>"; }
-        else { echo $td; }
-   
-        // end of week row
-        if (date('w', $currdate) == $DOWlist[6]) echo "</tr>\n";
-
-        // time correction = plus 1000 seconds, for some unknown reason
-        $currdate += (60*60*24)+1000;
-    }
-    echo "</table>";
-}
-// end DatePicker, small calendar output
 
 [-/php-]
 
